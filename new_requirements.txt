@@ -1,5 +1,0 @@
-faiss_cpu==1.8.0.post1
-groq==0.9.0
-langchain==0.2.11
-sentence_transformers==3.0.1
-streamlit==1.36.0
