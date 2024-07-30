@@ -10,7 +10,7 @@ from langchain.document_loaders import UnstructuredURLLoader
 from apikey import GROQ_API_KEY
 from groq import Groq
 
-st.title("RockyBot: News Research Tool 📈")
+st.title("News Research Tool 📈")
 st.sidebar.title("News Article URLs")
 
 urls = []
