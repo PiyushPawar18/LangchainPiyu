@@ -26,12 +26,11 @@ main_placeholder = st.empty()
 # Initialize Groq Client
 try:
     client = Groq(api_key=GROQ_API_KEY)
-except TypeError as te:
-    st.error("Groq initialization failed. Check the library version.")
-    st.stop()
+    st.success("Groq client initialized successfully!")
 except Exception as e:
     st.error(f"Failed to initialize Groq client: {e}")
     st.stop()
+
 
 if process_url_clicked and urls:
     try:
