@@ -5,8 +5,8 @@ import faiss
 from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import UnstructuredURLLoader
-from apikey import GROQ_API_KEY  # Ensure this contains a valid API key
-from groq import Groq  # Ensure the library is correctly installed
+from apikey import GROQ_API_KEY  # Ensure this file contains a valid API key
+from groq import Groq
 
 # Streamlit UI Setup
 st.title("News Research Tool 📈")
@@ -23,9 +23,12 @@ process_url_clicked = st.sidebar.button("Process URLs")
 file_path = "faiss_store.pkl"
 main_placeholder = st.empty()
 
-# Initialize the Groq client
+# Initialize Groq Client
 try:
     client = Groq(api_key=GROQ_API_KEY)
+except TypeError as te:
+    st.error("Groq initialization failed. Check the library version.")
+    st.stop()
 except Exception as e:
     st.error(f"Failed to initialize Groq client: {e}")
     st.stop()
