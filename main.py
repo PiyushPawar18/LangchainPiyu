@@ -4,14 +4,19 @@ import os
 import faiss
 from sentence_transformers import SentenceTransformer
 from langchain_community.document_loaders import UnstructuredURLLoader
-from apikey import GROQ_API_KEY  # Ensure this file contains a valid API key
+from apikey import GROQ_API_KEY
 from groq import Groq
 import httpx
 
+# Set up proxies for httpx
 proxies = {
-    "http": "http://your-proxy.com:8080",
-    "https": "http://your-proxy.com:8080",
+    "http://": "http://your-proxy.com:8080",
+    "https://": "http://your-proxy.com:8080",
 }
+
+# Initialize HTTP client with proxies
+http_client = httpx.Client(proxies=proxies)
+client = Groq(api_key=GROQ_API_KEY, http_client=http_client)
 
 # Streamlit UI Setup
 st.title("News Research Tool 📈")
@@ -27,15 +32,6 @@ for i in range(3):
 process_url_clicked = st.sidebar.button("Process URLs")
 file_path = "faiss_store.pkl"
 main_placeholder = st.empty()
-
-# Example: Handling initialization with optional proxies
-try:
-    client = Groq(api_key=GROQ_API_KEY)
-    # Optional: Assign custom httpx client with proxies if needed
-    client.http_client = httpx.Client(proxies=proxies)
-except Exception as e:
-    st.error(f"Failed to initialize Groq client: {e}. Please ensure your API key and Groq library version are correct.")
-    st.stop()
 
 if process_url_clicked and urls:
     try:
