@@ -5,7 +5,7 @@ import faiss
 from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import UnstructuredURLLoader
-from apikey import GROQ_API_KEY
+from apikey import GROQ_API_KEY  # Ensure this file contains a valid API key
 from groq import Groq
 
 # Streamlit UI Setup
@@ -26,9 +26,11 @@ main_placeholder = st.empty()
 # Initialize Groq Client
 try:
     client = Groq(api_key=GROQ_API_KEY)
-    st.success("Groq client initialized successfully!")
+except TypeError as te:
+    st.error("Groq initialization failed. Check the library version.")
+    st.stop()
 except Exception as e:
-    st.error(f"Groq initialization failed: {e}")
+    st.error(f"Failed to initialize Groq client: {e}")
     st.stop()
 
 if process_url_clicked and urls:
