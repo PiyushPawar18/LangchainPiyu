@@ -7,6 +7,14 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import UnstructuredURLLoader
 from apikey import GROQ_API_KEY  # Ensure this file contains a valid API key
 from groq import Groq
+import httpx
+
+proxies = {
+    "http": "http://your-proxy.com:8080",
+    "https": "http://your-proxy.com:8080",
+}
+
+client = Groq(api_key=GROQ_API_KEY, http_client=httpx.Client(proxies=proxies))
 
 # Streamlit UI Setup
 st.title("News Research Tool 📈")
@@ -23,14 +31,14 @@ process_url_clicked = st.sidebar.button("Process URLs")
 file_path = "faiss_store.pkl"
 main_placeholder = st.empty()
 
-# Initialize Groq Client
+
+
+# Example: Handling initialization with optional proxies
 try:
     client = Groq(api_key=GROQ_API_KEY)
-    st.success("Groq client initialized successfully!")
 except Exception as e:
-    st.error(f"Failed to initialize Groq client: {e}")
+    st.error(f"Failed to initialize Groq client: {e}. Please ensure your API key and Groq library version are correct.")
     st.stop()
-
 
 if process_url_clicked and urls:
     try:
