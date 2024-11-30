@@ -5,9 +5,10 @@ import faiss
 from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import UnstructuredURLLoader
-from apikey import GROQ_API_KEY
+from apikey import GROQ_API_KEY  # Ensure this contains a valid API key
 from groq import Groq  # Ensure the library is correctly installed
 
+# Streamlit UI Setup
 st.title("News Research Tool 📈")
 st.sidebar.title("News Article URLs")
 
@@ -20,11 +21,14 @@ for i in range(3):
 
 process_url_clicked = st.sidebar.button("Process URLs")
 file_path = "faiss_store.pkl"
-
 main_placeholder = st.empty()
 
 # Initialize the Groq client
-client = Groq(api_key=GROQ_API_KEY)  # Ensure GROQ_API_KEY is valid and correct
+try:
+    client = Groq(api_key=GROQ_API_KEY)
+except Exception as e:
+    st.error(f"Failed to initialize Groq client: {e}")
+    st.stop()
 
 if process_url_clicked and urls:
     try:
@@ -60,6 +64,7 @@ if process_url_clicked and urls:
         with open(file_path, "wb") as f:
             pickle.dump(vectorstore, f)
         main_placeholder.text("FAISS Index Saved ✅")
+        st.success("URLs processed successfully!")
     except Exception as e:
         st.error(f"Error processing URLs: {e}")
 
