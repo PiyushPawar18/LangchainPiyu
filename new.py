@@ -7,15 +7,21 @@ from groq import Groq
 import os
 import requests
 
+# Proxy Configuration
 proxies = {
     "http": os.getenv("HTTP_PROXY"),
     "https": os.getenv("HTTPS_PROXY")
 }
 
 # Verify the proxy setup
-response = requests.get("https://api.groq.com/health", proxies=proxies)
-if response.status_code == 200:
-    print("Proxy setup is working!")
+try:
+    response = requests.get("https://api.groq.com/health", proxies=proxies)
+    if response.status_code == 200:
+        print("Proxy setup is working!")
+    else:
+        print("Proxy setup failed. Check your configuration.")
+except Exception as e:
+    print(f"Error verifying proxy setup: {e}")
 
 # Streamlit UI Setup
 st.title("News Research Tool with Groq 🤖")
@@ -25,7 +31,8 @@ st.sidebar.title("Enter News Article URLs")
 urls = []
 for i in range(3):
     url = st.sidebar.text_input(f"URL {i+1}")
-    urls.append(url)
+    if url.strip():
+        urls.append(url)
 
 process_url_clicked = st.sidebar.button("Process URLs")
 
@@ -50,9 +57,16 @@ if "vector_store" not in st.session_state:
 if process_url_clicked:
     try:
         # Step 1: Load data from URLs
+        if not urls:
+            st.error("Please provide at least one valid URL.")
+            st.stop()
+
         st.info("Loading data from URLs...")
         loader = UnstructuredURLLoader(urls=urls)
         data = loader.load()
+        if not data:
+            st.error("Failed to load data from the provided URLs. Please check the URLs.")
+            st.stop()
 
         # Step 2: Split text into chunks
         st.info("Splitting text into smaller chunks...")
@@ -61,6 +75,9 @@ if process_url_clicked:
             chunk_size=1000
         )
         documents = text_splitter.split_documents(data)
+        if not documents:
+            st.error("No valid text chunks generated from the data. Check the content of the URLs.")
+            st.stop()
 
         # Step 3: Generate embeddings for text chunks
         st.info("Generating embeddings for documents...")
@@ -75,15 +92,18 @@ if process_url_clicked:
 query = st.text_input("Ask a question about the articles:")
 if query:
     try:
-        # Check if the vector store is available
+        # Ensure the vector store is available
         if st.session_state.vector_store is not None:
             st.info("Retrieving relevant documents...")
-
-            # Step 4: Retrieve relevant documents
             relevant_docs = st.session_state.vector_store.similarity_search(query, k=5)
-            context = "\n".join([doc.page_content for doc in relevant_docs])
+            if not relevant_docs:
+                st.warning("No relevant documents found for the query. Try a different question.")
+                st.stop()
 
-            # Step 5: Use Groq for answering the query
+            # Compile context from relevant documents
+            context = "\n".join([doc.page_content for doc in relevant_docs if hasattr(doc, "page_content")])
+
+            # Generate an answer using Groq
             st.info("Generating an answer with Groq...")
             response = client.chat.completions.create(
                 messages=[
@@ -92,15 +112,18 @@ if query:
                         "content": f"Context: {context}\n\nQuestion: {query}",
                     }
                 ],
-                model="llama3-8b-8192",  # Replace with your preferred Groq model if needed
+                model="llama3-8b-8192",  # Replace with your preferred Groq model
             )
 
+            # Display the result
             st.header("Answer")
             st.write(response.choices[0].message.content)
 
+            # Show sources
             st.subheader("Sources")
             for doc in relevant_docs:
-                st.write(doc.page_content)
+                if hasattr(doc, "page_content"):
+                    st.write(doc.page_content)
         else:
             st.warning("Please process URLs before querying.")
     except Exception as e:
