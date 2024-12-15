@@ -1,157 +1,65 @@
 import streamlit as st
-import pickle
-import os
-import faiss
 from urllib.parse import urlparse
-from sentence_transformers import SentenceTransformer
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import UnstructuredURLLoader
-from groq import Groq
-
-# Retrieve Groq API Key securely
-try:
-    from apikey import GROQ_API_KEY 
-    client = Groq(api_key=GROQ_API_KEY)
-except ImportError:
-    st.error("API Key file 'apikey.py' not found. Please ensure it is present and contains your Groq API Key.")
-    st.stop()
-except Exception as e:
-    st.error(f"Failed to initialize Groq client: {e}")
-    st.stop()
-
-# Streamlit UI Setup
-# Streamlit UI Setup
-st.title(u"News Research Tool 📊")  # Explicitly define the Unicode string with the `u` prefix.
-
-st.sidebar.title("News Article URLs")
+import requests
 
 # Helper function to validate URLs
 def is_valid_url(url):
     parsed = urlparse(url)
     return bool(parsed.netloc) and bool(parsed.scheme)
 
+# Helper function to fetch raw HTML content for debugging
+def fetch_html(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.text[:500]  # Return first 500 characters for inspection
+    except Exception as e:
+        return f"Error fetching URL: {e}"
+
+# Streamlit UI Setup
+st.title("News Research Tool 🗞️")
+st.sidebar.title("Enter News Article URLs")
+
 # Input URLs
 urls = []
-for i in range(3):
-    url = st.sidebar.text_input(f"URL {i+1}")
+for i in range(3):  # Allow up to 3 URLs
+    url = st.sidebar.text_input(f"URL {i + 1}", key=f"url_{i}")
     if url and not is_valid_url(url):
         st.sidebar.error(f"Invalid URL: {url}")
     urls.append(url)
 
 # Process Button
-process_url_clicked = st.sidebar.button("Process URLs")
-file_path = "faiss_store.pkl"
-main_placeholder = st.empty()
-
-if process_url_clicked:
-    # Validate URLs
+process_urls_clicked = st.sidebar.button("Process URLs")
+if process_urls_clicked:
+    # Filter out empty or invalid URLs
     valid_urls = [url for url in urls if is_valid_url(url)]
     if not valid_urls:
-        st.error("Please provide at least one valid URL!")
+        st.error("No valid URLs provided! Please enter at least one valid URL.")
     else:
         try:
             with st.spinner("Processing URLs..."):
-                # Load data from URLs
+                # Debugging: Check raw HTML content
+                for url in valid_urls:
+                    raw_html = fetch_html(url)
+                    if "Error" in raw_html:
+                        st.warning(f"Failed to fetch raw HTML for {url}. {raw_html}")
+                    else:
+                        st.write(f"Raw HTML for {url} (Preview):")
+                        st.code(raw_html)
+
+                # Load data from valid URLs using UnstructuredURLLoader
                 loader = UnstructuredURLLoader(urls=valid_urls)
                 data = loader.load()
 
+                # Check if any content was loaded
                 if not data:
-                    st.error("Failed to load any content from the provided URLs.")
-                    st.stop()
-
-                # Limit document size
-                MAX_DOC_SIZE = 10_000
-                for doc in data:
-                    if len(doc.page_content) > MAX_DOC_SIZE:
-                        doc.page_content = doc.page_content[:MAX_DOC_SIZE]
-
-                # Split data into chunks
-                text_splitter = RecursiveCharacterTextSplitter(
-                    separators=['\n\n', '\n', '.', ','],
-                    chunk_size=1000
-                )
-                docs = text_splitter.split_documents(data)
-
-                if not docs:
-                    st.error("No valid content found in the documents. Please check the URLs.")
-                    st.stop()
-
-                texts = [doc.page_content for doc in docs if doc.page_content.strip()]
-                if not texts:
-                    st.error("No valid text content available for creating embeddings.")
-                    st.stop()
-
-                # Create embeddings using SentenceTransformer
-                model = SentenceTransformer('paraphrase-MiniLM-L6-v2', cache_folder="models")
-                embeddings = model.encode(texts)
-
-                if embeddings.shape[0] == 0:
-                    st.error("No embeddings could be created. Please check the input content.")
-                    st.stop()
-
-                # Create FAISS index and add embeddings
-                index = faiss.IndexFlatL2(embeddings.shape[1])
-                index.add(embeddings)
-                vectorstore = {
-                    "index": index,
-                    "texts": texts,
-                    "metadata": [doc.metadata for doc in docs]
-                }
-
-                # Save the FAISS index to a pickle file
-                with open(file_path, "wb") as f:
-                    pickle.dump(vectorstore, f)
-
-                st.success("URLs processed and FAISS index created successfully!")
+                    st.error("Failed to load content from the provided URLs.")
+                else:
+                    # Display a summary of the loaded content
+                    st.success("Content loaded successfully!")
+                    for doc in data:
+                        st.subheader(f"Content from {doc.metadata.get('source', 'unknown source')}")
+                        st.text(doc.page_content[:500])  # Show preview of content
         except Exception as e:
-            st.error(f"Error during processing: {e}")
-
-# Query Section
-query = main_placeholder.text_input("Question: ")
-if query:
-    try:
-        if os.path.exists(file_path):
-            with open(file_path, "rb") as f:
-                vectorstore = pickle.load(f)
-                index = vectorstore["index"]
-                texts = vectorstore["texts"]
-                metadata = vectorstore["metadata"]
-
-                # Retrieve top 5 relevant documents
-                model = SentenceTransformer('paraphrase-MiniLM-L6-v2', cache_folder="models")
-                query_embedding = model.encode([query])
-
-                k = min(5, index.ntotal)  # Ensure k does not exceed the number of entries in the index
-                distances, indices = index.search(query_embedding, k=k)
-                retrieved_docs = [texts[i] for i in indices[0] if i < len(texts)]
-
-                # Construct context for Groq completion
-                MAX_CONTEXT_LEN = 2000
-                context = "\n".join(retrieved_docs)
-                if len(context) > MAX_CONTEXT_LEN:
-                    context = context[:MAX_CONTEXT_LEN] + "..."
-
-                # Get answer from Groq
-                chat_completion = client.chat.completions.create(
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": f"Context: {context}\n\nQuestion: {query}",
-                        }
-                    ],
-                    model="llama3-8b-8192"
-                )
-                result = chat_completion.choices[0].message.content
-
-                st.header("Answer")
-                st.write(result)
-
-                # Display sources
-                st.subheader("Sources:")
-                with st.expander("See sources"):
-                    for doc in retrieved_docs:
-                        st.write(doc)
-        else:
-            st.warning("FAISS index file not found. Process URLs first!")
-    except Exception as e:
-        st.error(f"Error during question answering: {e}")
+            st.error(f"An error occurred while processing URLs: {e}")
