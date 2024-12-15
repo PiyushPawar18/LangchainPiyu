@@ -20,7 +20,9 @@ except Exception as e:
     st.stop()
 
 # Streamlit UI Setup
-st.title("News Research Tool \ud83d\udcca")
+# Streamlit UI Setup
+st.title(u"News Research Tool 📊")  # Explicitly define the Unicode string with the `u` prefix.
+
 st.sidebar.title("News Article URLs")
 
 # Helper function to validate URLs
