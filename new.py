@@ -5,6 +5,17 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from groq import Groq
 import os
+import requests
+
+proxies = {
+    "http": os.getenv("HTTP_PROXY"),
+    "https": os.getenv("HTTPS_PROXY")
+}
+
+# Verify the proxy setup
+response = requests.get("https://api.groq.com/health", proxies=proxies)
+if response.status_code == 200:
+    print("Proxy setup is working!")
 
 # Streamlit UI Setup
 st.title("News Research Tool with Groq 🤖")
@@ -19,7 +30,7 @@ for i in range(3):
 process_url_clicked = st.sidebar.button("Process URLs")
 
 # Set Groq API Key
-groq_api_key = "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"  # Replace with your actual Groq API key
+groq_api_key = "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"  # Replace with your actual Groq API key
 if not groq_api_key:
     st.error("Set your Groq API key in the code.")
     st.stop()
