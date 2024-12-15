@@ -8,7 +8,7 @@ from langchain.document_loaders import UnstructuredURLLoader
 from groq import Groq
 
 # Groq API Key (embedded for demonstration purposes)
-GROQ_API_KEY = "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"  
+GROQ_API_KEY = "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"
 
 # Streamlit UI Setup
 st.title("News Research Tool 📈")
@@ -114,3 +114,4 @@ if query:
             st.warning("FAISS index file not found. Process URLs first!")
     except Exception as e:
         st.error(f"Error during question answering: {e}")
+
