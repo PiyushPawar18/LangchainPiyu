@@ -7,8 +7,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import UnstructuredURLLoader
 from groq import Groq
 
-# Groq API Key (embedded for demonstration purposes)
-GROQ_API_KEY = "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"
+# Groq API Key (embedded for demonstration purpose  
 
 # Streamlit UI Setup
 st.title("News Research Tool 📈")
@@ -26,7 +25,7 @@ main_placeholder = st.empty()
 
 # Initialize Groq Client
 try:
-    client = Groq(api_key=GROQ_API_KEY)  # Ensure compatibility with Groq library
+    client = Groq(api_key="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")  # Ensure compatibility with Groq library
 except AttributeError as e:
     st.error(f"Groq client initialization error: {e}. Check the library version.")
     st.stop()
@@ -114,4 +113,3 @@ if query:
             st.warning("FAISS index file not found. Process URLs first!")
     except Exception as e:
         st.error(f"Error during question answering: {e}")
-
