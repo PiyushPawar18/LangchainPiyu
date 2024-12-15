@@ -19,7 +19,7 @@ for i in range(3):
 process_url_clicked = st.sidebar.button("Process URLs")
 
 # Set Groq API Key
-groq_api_key = "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"  # Replace with your actual Groq API key
+groq_api_key = "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"  # Replace with your actual Groq API key
 if not groq_api_key:
     st.error("Set your Groq API key in the code.")
     st.stop()
