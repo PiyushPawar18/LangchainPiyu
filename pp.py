@@ -1,21 +1,23 @@
 import streamlit as st
 from urllib.parse import urlparse
 from langchain.document_loaders import UnstructuredURLLoader
-import requests
+from newspaper import Article
+import traceback
 
 # Helper function to validate URLs
 def is_valid_url(url):
     parsed = urlparse(url)
     return bool(parsed.netloc) and bool(parsed.scheme)
 
-# Helper function to fetch raw HTML content for debugging
-def fetch_html(url):
+# Helper function to fetch content using newspaper3k
+def fetch_content_with_newspaper(url):
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.text[:500]  # Return first 500 characters for inspection
+        article = Article(url)
+        article.download()
+        article.parse()
+        return article.text
     except Exception as e:
-        return f"Error fetching URL: {e}"
+        return f"Error extracting content with newspaper3k: {e}"
 
 # Streamlit UI Setup
 st.title("News Research Tool 🗞️")
@@ -39,27 +41,34 @@ if process_urls_clicked:
     else:
         try:
             with st.spinner("Processing URLs..."):
-                # Debugging: Check raw HTML content
-                for url in valid_urls:
-                    raw_html = fetch_html(url)
-                    if "Error" in raw_html:
-                        st.warning(f"Failed to fetch raw HTML for {url}. {raw_html}")
-                    else:
-                        st.write(f"Raw HTML for {url} (Preview):")
-                        st.code(raw_html)
-
-                # Load data from valid URLs using UnstructuredURLLoader
+                # Try loading data using UnstructuredURLLoader
+                st.subheader("Attempting to Load Content with UnstructuredURLLoader")
                 loader = UnstructuredURLLoader(urls=valid_urls)
-                data = loader.load()
+                try:
+                    data = loader.load()
+                except Exception as e:
+                    st.warning(f"UnstructuredURLLoader failed: {e}")
+                    data = []
 
-                # Check if any content was loaded
+                # If UnstructuredURLLoader fails, fallback to newspaper3k
                 if not data:
-                    st.error("Failed to load content from the provided URLs.")
+                    st.warning("UnstructuredURLLoader failed to extract content. Using newspaper3k fallback.")
+                    for url in valid_urls:
+                        content = fetch_content_with_newspaper(url)
+                        if "Error" in content:
+                            st.error(f"Failed to extract content from {url}: {content}")
+                        else:
+                            st.success(f"Content extracted from {url} using newspaper3k.")
+                            st.text(content[:500])  # Display a preview of the content
+
                 else:
-                    # Display a summary of the loaded content
-                    st.success("Content loaded successfully!")
-                    for doc in data:
-                        st.subheader(f"Content from {doc.metadata.get('source', 'unknown source')}")
+                    # Display content loaded with UnstructuredURLLoader
+                    st.success("Content loaded successfully with UnstructuredURLLoader!")
+                    for idx, doc in enumerate(data, start=1):
+                        st.subheader(f"Content {idx} from {doc.metadata.get('source', 'unknown source')}")
                         st.text(doc.page_content[:500])  # Show preview of content
+
         except Exception as e:
             st.error(f"An error occurred while processing URLs: {e}")
+            st.error("Detailed Traceback:")
+            st.text(traceback.format_exc())
