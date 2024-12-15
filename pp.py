@@ -20,7 +20,7 @@ except Exception as e:
     st.stop()
 
 # Streamlit UI Setup
-st.title("News Research Tool 📈")
+st.title("News Research Tool \ud83d\udcca")
 st.sidebar.title("News Article URLs")
 
 # Helper function to validate URLs
@@ -53,6 +53,10 @@ if process_url_clicked:
                 loader = UnstructuredURLLoader(urls=valid_urls)
                 data = loader.load()
 
+                if not data:
+                    st.error("Failed to load any content from the provided URLs.")
+                    st.stop()
+
                 # Limit document size
                 MAX_DOC_SIZE = 10_000
                 for doc in data:
@@ -65,11 +69,23 @@ if process_url_clicked:
                     chunk_size=1000
                 )
                 docs = text_splitter.split_documents(data)
-                texts = [doc.page_content for doc in docs]
+
+                if not docs:
+                    st.error("No valid content found in the documents. Please check the URLs.")
+                    st.stop()
+
+                texts = [doc.page_content for doc in docs if doc.page_content.strip()]
+                if not texts:
+                    st.error("No valid text content available for creating embeddings.")
+                    st.stop()
 
                 # Create embeddings using SentenceTransformer
                 model = SentenceTransformer('paraphrase-MiniLM-L6-v2', cache_folder="models")
                 embeddings = model.encode(texts)
+
+                if embeddings.shape[0] == 0:
+                    st.error("No embeddings could be created. Please check the input content.")
+                    st.stop()
 
                 # Create FAISS index and add embeddings
                 index = faiss.IndexFlatL2(embeddings.shape[1])
@@ -81,13 +97,8 @@ if process_url_clicked:
                 }
 
                 # Save the FAISS index to a pickle file
-                if os.path.exists(file_path):
-                    if st.sidebar.checkbox("Overwrite existing FAISS index?"):
-                        with open(file_path, "wb") as f:
-                            pickle.dump(vectorstore, f)
-                else:
-                    with open(file_path, "wb") as f:
-                        pickle.dump(vectorstore, f)
+                with open(file_path, "wb") as f:
+                    pickle.dump(vectorstore, f)
 
                 st.success("URLs processed and FAISS index created successfully!")
         except Exception as e:
@@ -107,8 +118,10 @@ if query:
                 # Retrieve top 5 relevant documents
                 model = SentenceTransformer('paraphrase-MiniLM-L6-v2', cache_folder="models")
                 query_embedding = model.encode([query])
-                distances, indices = index.search(query_embedding, k=5)
-                retrieved_docs = [texts[i] for i in indices[0]]
+
+                k = min(5, index.ntotal)  # Ensure k does not exceed the number of entries in the index
+                distances, indices = index.search(query_embedding, k=k)
+                retrieved_docs = [texts[i] for i in indices[0] if i < len(texts)]
 
                 # Construct context for Groq completion
                 MAX_CONTEXT_LEN = 2000
